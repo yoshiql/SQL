@@ -1,152 +1,297 @@
 DEFINE MACRO metrics (
 	SELECT
   //product    
-  	product,
-  //volume    
-  	  DOUBLE(SUM(IF((is_closed) , weight/1, 0))) as volume,
-  //M2_RateOfConsult
-      DOUBLE(SUM(IF((is_closed), total_seconds_in_consult_count, 0))/ SUM(IF((is_closed), weight/1, 0))) as M2_RateOfConsult,
+    product,
+       EXACT_COUNT_DISTINCT(case_ids) as volume,
   //TATless24
       DOUBLE(SUM(IF((is_closed) and (NOT count_for_turn_around = 0), ((total_seconds_for_turn_arounds / count_for_turn_around < 24 * 60 * 60) * weight), 0)))  / SUM(IF((is_closed) and (NOT count_for_turn_around = 0), weight, 0.0)) as TATless24, 
   //CSAT_score
-      ((1 * ((SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel='PHONE' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0))/(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) + .000001) * IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel='PHONE' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)))) +  (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel='PHONE' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0))/(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) + .000001) * IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel='PHONE' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)))) +  (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel='PHONE' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0))/(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) + .000001) * IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel='PHONE' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)))) +  (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel='EMAIL' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0))/(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) + .000001) * IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel='EMAIL' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)))) +  (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel='EMAIL' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0))/(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) + .000001) * IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel='EMAIL' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)))) +  (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel='EMAIL' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0))/(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) + .000001) * IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel='EMAIL' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)))) +  (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0))/(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) + .000001) * IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)))) +  (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'PHONE') and (is_closed) , weight, 0.0))/(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) + .000001) * IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)))) +  (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0))/(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) + .000001) * IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel IN ('CHAT', 'HANGOUT') and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)))))) /  (IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel='PHONE' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0))) + IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel='PHONE' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0))) + IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel='PHONE' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0))) + IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel='EMAIL' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0))) + IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel='EMAIL' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0))) +   IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel='EMAIL' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0))) + IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0))) + IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'PHONE') and (is_closed) , weight, 0.0))) + IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) = 0, 0, SUM(IF((Channel IN ('CHAT', 'HANGOUT') and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)))) )  as CSAT_score,
+      ((1 * ((SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel='PHONE' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0))/
+              (SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) + .000001) * 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel='PHONE' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)))) +  
+             (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel='PHONE' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0))/
+              (SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) + .000001) * 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel='PHONE' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)))) +  
+             (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel='PHONE' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0))/
+              (SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) + .000001) * 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel='PHONE' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)))) +  
+             (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel='EMAIL' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0))/
+              (SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) + .000001) * 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel='EMAIL' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)))) +  
+             (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel='EMAIL' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0))/
+              (SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) + .000001) *
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel='EMAIL' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)))) +  
+             (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel='EMAIL' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0))/
+              (SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) + .000001) * 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel='EMAIL' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)))) +  
+             (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0))/
+              (SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) + .000001) * 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)))) +  
+             (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'PHONE') and (is_closed) , weight, 0.0))/
+              (SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) + .000001) * 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)))) +  
+             (SUM(IF(((INT32(unified_csat) = 6 or INT32(unified_csat) = 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0))/
+              (SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) + .000001) * 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel IN ('CHAT', 'HANGOUT') and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)))))) /  
+             (IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel='PHONE' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0))) + 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel='PHONE' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0))) + 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='PHONE' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel='PHONE' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0))) + 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel='EMAIL' and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0))) + 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel='EMAIL' and channel_survey = 'PHONE') and (is_closed) , weight, 0.0))) +   
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel='EMAIL' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel='EMAIL' and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0))) + 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'EMAIL') and (is_closed) , weight, 0.0))) + 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'PHONE') and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel IN ('CHAT', 'HANGOUT') and channel_survey = 'PHONE') and (is_closed) , weight, 0.0))) + 
+              IF(SUM(IF(((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and Channel IN ('CHAT', 'HANGOUT') and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)) = 0, 0, 
+                 SUM(IF((Channel IN ('CHAT', 'HANGOUT') and channel_survey IN ('CHAT', 'HANGOUT')) and (is_closed) , weight, 0.0)))) )  as CSAT_score,
   //CSAT_responses    
-  	  (SUM(IF((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and (is_closed),  weight, 0.0)))  as CSAT_responses, 
-  //CSAT_responserate
-      (SUM(IF((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and (is_closed),  weight , 0.0)) *  1 / (SUM(IF((channel_survey != '') and (is_closed), weight, 0.0)))) as CSAT_responserate, 
-  //avg_TAT    
-  	  DOUBLE(SUM(IF((is_closed) , total_seconds_for_turn_arounds, 0))/(SUM(IF((is_closed) , count_for_turn_around, 0)) + .001)/3600) as avg_TAT, 
-  //IRT
-  		DOUBLE(SUM(IF((is_closed),total_seconds_for_internal_resolution,0)) / (SUM(IF((is_closed) ,weight,0)) + .001)/3600) AS IRT,
-  //TFR
-  		DOUBLE(SUM(IF((is_closed),total_seconds_to_first_response,0))/(SUM(IF((is_closed) ,weight,0)) + .001)/3600) AS TFR
+  	  (SUM(IF((INT32(unified_csat) > 0 AND INT32(unified_csat) <= 7) and (is_closed),  weight, 0.0)))  as CSAT_responses,    
+    STRFTIME_UTC_USEC(TIME_USEC_TO_MONTH(closing_date),"%b %y") as month,
+   first_assignee_staffing_partner, 
+	
   FROM
-    	random_table123
+    	random_table123 AS ps
 	WHERE
     	$1
-      AND is_closed = true
-  GROUP BY product
+        AND is_closed = true
+    GROUP BY product,month,first_assignee_staffing_partner
 	);
-
 
 DEFINE MACRO metrics_NT (
 	SELECT
-  //product    
     product,
+  first_assignee_staffing_partner,
   //m_TRT    
       CASE WHEN (LOWER(gtechcasetype) = "transactional support" AND is_closed = true) THEN 
         (IF (COUNT(DISTINCT case_ids) > 100, DOUBLE(NTH(51, QUANTILES(IF((is_closed), total_seconds_to_resolution / weight, NULL), 101))/3600), (DOUBLE(NTH(51, QUANTILES(IF((is_closed), total_seconds_to_resolution / weight, NULL), 101))/3600) + DOUBLE(NTH(52, QUANTILES(IF((is_closed), total_seconds_to_resolution / weight, NULL), 101))/3600)) / 2) 
-        ) END as m_TRT                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+        ) END as m_TRT,
+		STRFTIME_UTC_USEC(closing_date,"%b %y") as month
   	FROM
-    	random_table123 
+
+       random_table124
 	WHERE
     	$1
   		AND LOWER(gtechcasetype) = "transactional support"
-    GROUP BY product,gtechcasetype,is_closed
+    //This filter is for ACN only data.
+ AND first_assignee_staffing_partner IN ('Accenture', 'Accenture [Mapped]')
+    GROUP BY product,gtechcasetype,is_closed,month,first_assignee_staffing_partner
 	);
 
-
+--Good to go
 DEFINE MACRO QA (
   	SELECT
        	(sum(is_meets)/(sum(is_meets)+sum(is_below)+sum(is_slighly_below))) AS score,
   		(sum(is_meets)+sum(is_below)+sum(is_slighly_below)) AS reviewed,
-        product
+        product,
+		STRFTIME_UTC_USEC(closed_date,"%b %y") as month
+    
   FROM
-		random_table141
+		random_table125
     WHERE
 		$1
-    GROUP BY product
+    GROUP BY product,month
 	);
 
+--Begin Actual script here.--
 
-MATERIALIZE "directoryname" AS
+--Materialize table: 
+SET materialize_owner_group gtech-ps-i2-dremel
+SET materialize_overwrite True
+SET min_completion_ratio 1
+
+//specify path in placer.
+MATERIALIZE "/cns/iq-d/home/randomfilenamehere/random/access/directory" AS
 
 SELECT 
-  MTD.product as product,
-  //targets
-  MAX(sla.mTRT) as mTRT_target,
-  MAX(ROUND(sla.TAT*100,0)) as TAT_target,
-  MAX(ROUND(sla.QA*100,0)) as QA_target,
-  MAX(ROUND(sla.CSAT*100,0)) as CSAT_target,
-  MAX(ROUND(sla.CR*100,0)) as CR_target,
-  MAX(ROUND(sla.HC,0)) as HC,
+MT.product,
+MT.month as month_start,
+MAX(sla.csat_target) as CSAT_target,
+MAX(sla.mtrt_target) as mTRT_target,
+MAX(sla.qa_target) as QA_target,
+MAX(sla.tat_target) as TAT_target,                
 
-  //closing week
+--MAX(int64(ROUND(MT.avg_TAT,0))) as MT_avg_TAT,
 
-  STRFTIME_UTC_USEC(TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -7, "DAY")),"%B %d, %G") AS month_start,
-  STRFTIME_UTC_USEC(TIME_USEC_TO_QUARTER(DATE_ADD(NOW(), -7, "DAY")),"%B %d, %G") AS quarter_start,
- 
-  //MTD
-  MAX(int64(ROUND(MTD.volume,0))) as MTD_volume,
-  MAX(int64(ROUND(MTD.avg_TAT,0))) as MTD_avg_TAT,
-  MAX(int64(ROUND(MTD.TATless24*100,0))) as MTD_TATless24,
-  MAX(int64(ROUND(MTD_NT.m_TRT,0))) as MTD_m_TRT,
-  MAX(int64(ROUND(MTD.CSAT_score*100,0))) as MTD_CSAT_score,
-  MAX(int64(ROUND(MTD.CSAT_responses,0))) AS MTD_CSAT_responses,
-  //QTD
-  MAX(int64(ROUND(QTD.volume,0))) as QTD_volume,
-  MAX(int64(ROUND(QTD.avg_TAT,0))) as QTD_avg_TAT,
-  MAX(int64(ROUND(QTD.TATless24*100,0))) as QTD_TATless24,
-  MAX(int64(ROUND(QTD_NT.m_TRT,0))) as QTD_m_TRT,
-  MAX(int64(ROUND(QTD.CSAT_score*100,0))) as QTD_CSAT_score,
-  MAX(int64(ROUND(QTD.CSAT_responses,0))) AS QTD_CSAT_responses,
+MAX(int64(ROUND(MT.CSAT_responses,0))) AS MTD_CSAT_responses,
 
-  //lastMT
-  MAX(int64(ROUND(lastMT.volume,0))) as lastMT_volume,
-  MAX(int64(ROUND(lastMT.avg_TAT,0))) as lastMT_avg_TAT,
-  MAX(int64(ROUND(lastMT.TATless24*100,0))) as lastMT_TATless24,
-  MAX(int64(ROUND(lastMT_NT.m_TRT,0))) as lastMT_m_TRT,
-  MAX(int64(ROUND(lastMT.CSAT_score*100,0))) as lastMT_CSAT_score,
-  MAX(int64(ROUND(lastMT.CSAT_responses,0))) AS lastMT_CSAT_responses,
+MAX(int64(ROUND(MT.CSAT_score*100,0))) as MTD_CSAT_score,
 
-  //QA
-  MAX(int64(ROUND(QA_MTD.score*100,0))) AS MTD_QA_score,
-  MAX(int64(ROUND(QA_QTD.score*100,0))) AS QTD_QA_score,
-  MAX(int64(ROUND(QA_MTD.reviewed,0))) AS MTD_QA_reviewed,
-  MAX(int64(ROUND(QA_QTD.reviewed,0))) AS QTD_QA_reviewed,
-  
-FROM 
+MAX(int64(ROUND(MT_NT.m_TRT,0))) as MTD_m_TRT,
 
-    ($metrics(
-      PARSE_TIME_USEC(closing_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -7, "DAY")) AND PARSE_TIME_USEC(closing_date) < TIME_USEC_TO_WEEK(NOW(),0)
-      )) AS MTD
-	OUTER JOIN@500
-    ($metrics(
-      PARSE_TIME_USEC(closing_date) >= TIME_USEC_TO_QUARTER(DATE_ADD(NOW(), -7, "DAY")) AND PARSE_TIME_USEC(closing_date) < TIME_USEC_TO_WEEK(NOW(),0)
-      )) AS QTD
-    ON (QTD.product = MTD.product)
-	OUTER JOIN@500
-    ($metrics(
-      PARSE_TIME_USEC(closing_date) >= DATE_ADD(TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -7, "DAY")),-1,"MONTH") AND PARSE_TIME_USEC(closing_date) <= TIME_USEC_TO_MONTH(TIME_USEC_TO_WEEK(NOW(),0))
-      )) AS lastMT
- 	ON (lastMT.product = MTD.product)
-	OUTER JOIN@500
-    ($metrics_NT(
-      PARSE_TIME_USEC(closing_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -7, "DAY")) AND PARSE_TIME_USEC(closing_date) < TIME_USEC_TO_WEEK(NOW(),0)
-      )) AS MTD_NT
-    ON (MTD_NT.product = MTD.product)
-	OUTER JOIN@500
-    ($metrics_NT(
-      PARSE_TIME_USEC(closing_date) >= TIME_USEC_TO_QUARTER(DATE_ADD(NOW(), -7, "DAY")) AND PARSE_TIME_USEC(closing_date) < TIME_USEC_TO_WEEK(NOW(),0)
-      )) AS QTD_NT
-    ON (QTD_NT.product = MTD.product)
-	OUTER JOIN@500
-    ($metrics_NT(
-      PARSE_TIME_USEC(closing_date) >= DATE_ADD(TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -7, "DAY")),-1,"MONTH") AND PARSE_TIME_USEC(closing_date) <= TIME_USEC_TO_MONTH(TIME_USEC_TO_WEEK(NOW(),0))
-      )) AS lastMT_NT
- 	ON (lastMT_NT.product = MTD.product)
-	OUTER JOIN@500
-    ($QA(
-      PARSE_TIME_USEC(review_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -7, "DAY")) AND PARSE_TIME_USEC(review_date) < TIME_USEC_TO_WEEK(NOW(),0)
-      )) AS QA_MTD
-    ON (QA_MTD.product = MTD.product)
-	OUTER JOIN@500
-    ($QA(
-      PARSE_TIME_USEC(review_date) >= TIME_USEC_TO_QUARTER(DATE_ADD(NOW(), -7, "DAY")) AND PARSE_TIME_USEC(review_date) < TIME_USEC_TO_WEEK(NOW(),0)
+MAX(int64(ROUND(QA_MT.score*100,0))) AS MTD_QA_score,
+
+MAX(int64(ROUND(MT.TATless24*100,0))) as MTD_TATless24,
+
+MAX(int64(ROUND(MT.volume,0))) as MTD_volume,
+
+MAX(int64(ROUND(QA_MT.reviewed,0))) AS MTD_QA_reviewed, 
+
+------ This is the QTD  --
+
+MAX(int64(ROUND(QT.CSAT_responses,0))) AS QTD_CSAT_responses,
+
+MAX(int64(ROUND(QT.CSAT_score*100,0))) as QTD_CSAT_score,
+
+MAX(int64(ROUND(QT_NT.m_TRT,0))) as QTD_m_TRT,
+
+MAX(int64(ROUND(QA_QTD.score*100,0))) AS QTD_QA_score,
+
+MAX(int64(ROUND(QT.TATless24*100,0))) as QTD_TATless24,
+
+MAX(int64(ROUND(QT.volume,0))) as QTD_volume,
+
+MAX(int64(ROUND(QA_QTD.reviewed,0))) AS QTD_QA_reviewed,  
+
+------ This is Last Month  --
+
+MAX(int64(ROUND(lastmt.CSAT_responses,0))) AS lastmt_CSAT_responses,
+
+MAX(int64(ROUND(lastmt.CSAT_score*100,0))) as lastmt_CSAT_score,
+
+MAX(int64(ROUND(lastmt_nt.m_TRT,0))) as lastmt_m_TRT,
+
+MAX(int64(ROUND(lastmt_qa.score*100,0))) AS lastmt_QA_score,
+
+MAX(int64(ROUND(lastmt.TATless24*100,0))) as lastmt_TATless24,
+
+MAX(int64(ROUND(lastmt.volume,0))) as lastmt_volume,
+
+MAX(int64(ROUND(lastmt_qa.reviewed,0))) AS lastmt_QA_reviewed  
+
+
+FROM
+
+--(A)This joins Metrics Table:
+($metrics(
+      PARSE_TIME_USEC(closing_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -2, "MONTH")) AND PARSE_TIME_USEC(closing_date) < TIME_USEC_TO_MONTH(NOW())
+    )) AS MT
+
+--(B)This joins Metrics NON-Tranx table:
+INNER JOIN@500
+	($metrics_NT(
+      PARSE_TIME_USEC(closing_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -2, "MONTH")) AND PARSE_TIME_USEC(closing_date) < TIME_USEC_TO_MONTH(NOW())
+    )) AS MT_NT
+  --We cannot join by Vertical so we will close this for now 
+  --ON (MT_NT.product = MT.product AND MT_NT.vertical = MT.vertical AND MT_NT.month = MT.month)
+    ON (MT_NT.product = MT.product) 
+
+--(C)This joins the table with Metrics information
+INNER JOIN@500
+    yoshidaa.metrics_table_random AS sla
+    ON sla.Product = MT.product 
+    
+   INNER JOIN@500
+	($QA(
+      PARSE_TIME_USEC(review_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -4, "MONTH")) AND PARSE_TIME_USEC(review_date) < TIME_USEC_TO_MONTH(NOW())
+      )) AS QA_MT
+      ON (QA_MT.product = MT.product)
+      
+---## Join the DATA with QTD numbers. ##--
+
+--This is Tranx table QTD--
+INNER JOIN@500 
+($metrics(
+      PARSE_TIME_USEC(closing_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -4, "MONTH")) AND PARSE_TIME_USEC(closing_date) < TIME_USEC_TO_MONTH(NOW())
+    )) AS QT
+    ON (MT.product = QT.product)
+--This is Non-Tranx Table QTD--
+INNER JOIN@500
+	($metrics_NT(
+      PARSE_TIME_USEC(closing_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -4, "MONTH")) AND PARSE_TIME_USEC(closing_date) < TIME_USEC_TO_MONTH(NOW())
+    )) AS QT_NT
+    ON (QT_NT.product = MT.product) 
+
+--This Will Join QA Table--
+   INNER JOIN@500
+	($QA(
+      PARSE_TIME_USEC(review_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -4, "MONTH")) AND PARSE_TIME_USEC(review_date) < TIME_USEC_TO_MONTH(NOW())
       )) AS QA_QTD
-    ON (QA_QTD.product = MTD.product)
-    OUTER JOIN@500
-    random_table123 AS sla
-    ON (sla.Product = MTD.product)
-GROUP BY product;
+      ON (QA_QTD.product = MT.product)
 
+---## Join the DATA with LASTMTD numbers. ##--
+
+--This is Tranx table Last Month--
+INNER JOIN@500 
+($metrics(
+      PARSE_TIME_USEC(closing_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -1, "MONTH")) AND PARSE_TIME_USEC(closing_date) < TIME_USEC_TO_MONTH(NOW())
+    )) AS lastmt
+    ON (MT.product = lastmt.product)
+--This is Non-Tranx Table Last Month--
+INNER JOIN@500
+	($metrics_NT(
+      PARSE_TIME_USEC(closing_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -1, "MONTH")) AND PARSE_TIME_USEC(closing_date) < TIME_USEC_TO_MONTH(NOW())
+    )) AS lastmt_nt
+    ON (QT_NT.product = lastmt_nt.product) 
+
+--This Will Join QA Table Last Month--
+   INNER JOIN@500
+	($QA(
+      PARSE_TIME_USEC(review_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -1, "MONTH")) AND PARSE_TIME_USEC(review_date) < TIME_USEC_TO_MONTH(NOW())
+      )) AS lastmt_qa
+      ON (QA_QTD.product = lastmt_qa.product)
+
+
+GROUP BY 1,2
+
+DEFINE PERMANENT TABLE yoshidaa.sample_query1 /cns/iq-d/home/gtech-ps-i2-dremel/yoshidaa/test/data*
+
+
+SELECT 
+
+  MAX(ROUND(sla.CR*100,0)) as CR_target,
+  MAX(ROUND(sla.CSAT*100,0)) as CSAT_target,
+  MAX(ROUND(sla.HC,0)) as HC,
+	MT.month as month,
+  MAX(int64(ROUND(MT.avg_TAT,0))) as MT_avg_TAT,
+  MAX(int64(ROUND(MT.CSAT_responses,0))) AS MT_CSAT_responses,
+  MAX(int64(ROUND(MT.CSAT_score*100,0))) as MT_CSAT_score,
+  MAX(int64(ROUND(MT_NT.m_TRT,0))) as MT_m_TRT,
+  MAX(int64(ROUND(QA_MT.score*100,0))) AS MT_QA_score,
+  MAX(int64(ROUND(MT.TATless24*100,0))) as MT_TATless24,
+  MAX(int64(ROUND(MT.volume,0))) as MT_volume,
+  MAX(sla.mTRT) as mTRT_target,  
+  MT.product as product,
+  MAX(ROUND(sla.QA*100,0)) as QA_target,
+  MAX(ROUND(sla.TAT*100,0)) as TAT_target,
+  MT.vertical as vertical,
+  MAX(int64(ROUND(QA_MT.reviewed,0))) AS MT_QA_reviewed  
+FROM 
+	($metrics(
+      PARSE_TIME_USEC(closing_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -6, "MONTH")) AND PARSE_TIME_USEC(closing_date) < TIME_USEC_TO_MONTH(NOW())
+    )) AS MT
+
+	OUTER JOIN@500
+	($metrics_NT(
+      PARSE_TIME_USEC(closing_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -6, "MONTH")) AND PARSE_TIME_USEC(closing_date) < TIME_USEC_TO_MONTH(NOW())
+    )) AS MT_NT
+   
+   ON (MT_NT.product = MT.product AND MT_NT.vertical = MT.vertical AND MT_NT.month = MT.month)
+  
+	OUTER JOIN@500
+	($QA(
+      PARSE_TIME_USEC(review_date) >= TIME_USEC_TO_MONTH(DATE_ADD(NOW(), -6, "MONTH")) AND PARSE_TIME_USEC(review_date) < TIME_USEC_TO_MONTH(NOW())
+      )) AS QA_MT
+    ON (QA_MT.product = MT.product AND QA_MT.vertical = MT.vertical AND QA_MT.month = MT.month)
+
+    OUTER JOIN@500
+    acnreport_sla AS sla
+    ON (sla.Product = MT.product AND sla.Vertical = MT.vertical)
+
+GROUP BY product,vertical,month
+ORDER BY vertical,product,month;
