@@ -146,7 +146,7 @@ FROM
       )) AS QA_QTD
     ON (QA_QTD.product = MTD.product)
     OUTER JOIN@500
-    acnreport_sla AS sla
+    random_table123 AS sla
     ON (sla.Product = MTD.product)
 GROUP BY product;
 
