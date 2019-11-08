@@ -1,0 +1,127 @@
+SELECT NVL(a.account_key,b.account_key) account_key,
+  a.max_opty_close_dt_1st,
+  b.multi_opty_closed_date,
+  b.stamp_max_closed_dt,
+  b.LICENSE_REPORT_ISSUE_DATE__C,
+  b.max_old_org_closedate,
+  b.default_dt
+FROM
+  ( SELECT DISTINCT a.account_key,   ------1st part
+    MAX(b.closedate) AS max_opty_close_dt_1st
+  FROM account_n_dim a,
+    opty_n_dim b
+  WHERE a.account_key                =b.account_key
+  AND b.PT_INFA_LICENSE_COMPLIANCE__C=1
+  GROUP BY a.account_key
+  ) a
+FULL OUTER JOIN
+  ( WITH T AS                             ----------required for 4,5 and 6th part
+  (SELECT DISTINCT a.account_key,
+    b.ENGAGEMENT_KEY,
+    c.OPPORTUNITY_KEY,
+    c.closedate,
+    b.LICENSE_REPORT_ISSUE_DATE__C,
+    c.STAGENAME
+  FROM account_n_dim a,
+    engagement_n_dim b,
+    opty_n_dim c
+  WHERE a.account_key                 =b.account_key
+  AND b.PT_INFA_LICENSE_COMPLIANCE__C =1
+  AND a.account_key                   =c.account_key
+  AND c.PT_INFA_LICENSE_COMPLIANCE__C!=1
+  )
+SELECT NVL(a.account_key,b.account_key) account_key,
+  a.multi_opty_closed_date,
+  a.stamp_max_closed_dt,
+  a.LICENSE_REPORT_ISSUE_DATE__C,
+  b.max_old_org_closedate,
+  b.default_dt
+FROM
+  (SELECT NVL(a.account_key,b.account_key) account_key,   
+    a.multi_opty_closed_date,
+    a.stamp_max_closed_dt,
+    b.LICENSE_REPORT_ISSUE_DATE__C
+  FROM
+    (SELECT NVL(a.account_key,b.account_key) account_key,
+      multi_opty_closed_date,
+      b.stamp_max_closed_dt
+    FROM
+      (SELECT account_key,
+        MAX(closedate) AS multi_opty_closed_date                    -----4th part
+      FROM t
+      GROUP BY account_key,
+        ENGAGEMENT_KEY
+      HAVING COUNT(*)>1
+      ) a
+    FULL OUTER JOIN
+      (SELECT account_key,
+        closedate AS stamp_max_closed_dt                ----5th part
+      FROM t
+      WHERE account_key IN
+        (SELECT account_key
+        FROM t
+        GROUP BY account_key,
+          ENGAGEMENT_KEY
+        HAVING COUNT(*)=1
+        )
+      AND STAGENAME IN ('Closed Lost','Closed Won')
+      ) b
+    ON a.account_key=b.account_key
+    ) a
+  FULL OUTER JOIN
+    (SELECT account_key,
+      LICENSE_REPORT_ISSUE_DATE__C                -------6th part
+    FROM t
+    WHERE account_key IN
+      (SELECT account_key
+      FROM t
+      GROUP BY account_key,
+        ENGAGEMENT_KEY
+      HAVING COUNT(*)=1
+      )
+    AND STAGENAME NOT IN ('Closed Lost','Closed Won')
+    ) b
+  ON a.account_key=b.account_key
+  ) a
+FULL OUTER JOIN
+  (SELECT NVL(a.ACCOUNT_KEY,b.ACCOUNT_KEY) account_key,
+    a.max_old_org_closedate,
+    b.default_dt
+  FROM
+    (SELECT a.ACCOUNT_KEY,
+      MAX(c.closedate) AS max_old_org_closedate                     ----2nd part
+    FROM account_n_dim a,
+      account_dim b,
+      opty_dim c,
+      engagement_n_dim d,
+      opty_n_dim e
+    WHERE a.EXTERNAL_ID__C              =b.account_ID
+    AND b.ACCOUNT_KEY                   =c.ACCOUNT_KEY
+    AND a.ACCOUNT_KEY                   =d.ACCOUNT_KEY
+    AND d.PT_INFA_LICENSE_COMPLIANCE__C!=1
+    AND a.ACCOUNT_KEY                   =e.ACCOUNT_KEY
+    AND e.PT_INFA_LICENSE_COMPLIANCE__C =0
+    AND c.PT_INFA_LICENSE_COMPLIANCE__C =1
+    and c.STAGENAME='Closed'
+    GROUP BY a.ACCOUNT_KEY
+    ) a
+  FULL OUTER JOIN
+    ( SELECT DISTINCT a.ACCOUNT_KEY,
+      to_date('01-JAN-1900','DD-MON-YYYY') AS default_dt                  ---3rd part
+    FROM account_n_dim a,
+      account_dim b,
+      opty_dim c,
+      engagement_n_dim d,
+      opty_n_dim e
+    WHERE a.EXTERNAL_ID__C              =b.account_ID
+    AND b.ACCOUNT_KEY                   =c.ACCOUNT_KEY
+    AND a.ACCOUNT_KEY                   =d.ACCOUNT_KEY
+    AND d.PT_INFA_LICENSE_COMPLIANCE__C!=1
+    AND a.ACCOUNT_KEY                   =e.ACCOUNT_KEY
+    AND e.PT_INFA_LICENSE_COMPLIANCE__C =0
+    AND c.PT_INFA_LICENSE_COMPLIANCE__C!=1
+    and c.STAGENAME!='Closed'
+    ) b
+  ON a.ACCOUNT_KEY    =b.ACCOUNT_KEY
+  ) b ON a.ACCOUNT_KEY=b.ACCOUNT_KEY
+  ) b ON a.ACCOUNT_KEY=b.ACCOUNT_KEY;
