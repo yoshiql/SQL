@@ -1,0 +1,101 @@
+SELECT
+    RPT.accounting_period_month_key,
+    RPT.contract_key,
+    RPT.product_key,
+    RPT.booked_date,
+    RPT.sold_to_customer_key,
+    RPT.bill_to_address_key,
+    RPT.sold_to_address_key,
+    RPT.sku_key,
+    RPT.MONTH_CONTRACT_KEY,
+    RPT.MONTH_CONTRACT_POID_KEY,
+    RPT.cur_product_hry_id,
+    RPT.accounting_period_month,
+    RPT.contract_num,
+    RPT.contract_line_num,
+    RPT.contr_status,
+    RPT.contr_group,
+    RPT.contr_line_maint_term,
+    RPT.maintenance_line_start_dt,
+    RPT.maintenance_line_end_dt,
+    NVL(RPT.maintenance_term,0) as maintenance_term,
+    RPT.product_offering_id,
+    RPT.parent_offering_id,
+    RPT.offering_type,
+    RPT.product_desc,
+    RPT.dm_type,
+    RPT.division,
+    RPT.business_unit,
+    RPT.family,
+    RPT.edition,
+    RPT.option_scale,
+    RPT.country,
+    RPT.region,
+    RPT.region_relabel,
+    RPT.prod_l1_fix_for_cloud,
+    RPT.product_board_view,
+    RPT.intermediate_category,
+    RPT.sub_product_category,
+    RPT.product_category,
+    RPT.dm_type_bu_prod_category,
+    RPT.pricing_business_model,
+    RPT.delivery_method__c,
+    RPT.core_vs_new_product,
+    RPT.sales_region,
+    RPT.sales_channel,
+    RPT.customer_type,
+    RPT.customer_name,
+    RPT.offering_catg,
+    RPT.percent_new,
+    RPT.percent_renew,
+    RPT.percent_upsell,
+    RPT.sub_nnb_acv_usd,
+    RPT.booking_billing_amt_usd,
+    RPT.booking_amt_usd,
+    RPT.extended_list_price_usd,
+    RPT.edw_acv,
+    RPT.nnb_acv_txn,
+    RPT.nnb_acv_base,
+    RPT.ren_acv_usd,
+    RPT.ren_acv_txn,
+    RPT.ren_acv_base,
+    RPT.perpetual_nnb_acv_usd,
+    RPT.total_nnb_acv_usd,
+    RPT.proforma_nnb_acv_usd,
+    CASE WHEN RPT.offering_type ='B' THEN
+    Case when SUM(case when RPT.offering_type ='B' then RPT.extended_list_price_usd ELSE 0 END)
+    OVER (partition by RPT.MONTH_CONTRACT_POID_KEY) *SUM(RPT.booking_billing_amt_usd) over (partition by RPT.MONTH_CONTRACT_POID_KEY)=0 then 0 
+    ELSE
+    RPT.extended_list_price_usd /
+    SUM(case when RPT.offering_type ='B' then RPT.extended_list_price_usd ELSE 0 END)
+    OVER (partition by RPT.MONTH_CONTRACT_POID_KEY) *SUM(RPT.booking_billing_amt_usd) over (partition by RPT.MONTH_CONTRACT_POID_KEY) END
+     WHEN RPT.offering_type ='P' THEN RPT.booking_billing_amt_usd   ELSE 0 END as PC_ALLOCATED_BILLING,
+     
+  CASE WHEN (RPT.offering_type ='B' AND NVL(RPT.maintenance_term,0) >12 ) then case when NVL(RPT.maintenance_term,0)=0 then 0 ELSE
+  (CASE WHEN RPT.offering_type ='B'
+  THEN
+  case when SUM(case when RPT.offering_type ='B' then RPT.extended_list_price_usd ELSE 0 END) 
+  OVER (partition by RPT.MONTH_CONTRACT_POID_KEY)   *SUM(RPT.booking_billing_amt_usd) over (partition by RPT.MONTH_CONTRACT_POID_KEY)=0 then 0 ELSE 
+  RPT.extended_list_price_usd / SUM(case when RPT.offering_type ='B' then RPT.extended_list_price_usd ELSE 0 END) 
+  OVER (partition by RPT.MONTH_CONTRACT_POID_KEY)   *SUM(RPT.booking_billing_amt_usd) over (partition by RPT.MONTH_CONTRACT_POID_KEY) END
+     WHEN RPT.offering_type ='P' THEN RPT.booking_billing_amt_usd ELSE 0 END) / NVL(RPT.maintenance_term,0) * 12 END
+       WHEN (RPT.offering_type ='B' AND NVL(RPT.maintenance_term,0) <=12 ) THEN CASE WHEN RPT.offering_type ='B' THEN
+       case when SUM(case when RPT.offering_type ='B' then RPT.extended_list_price_usd ELSE 0 END)
+       OVER (partition by RPT.MONTH_CONTRACT_POID_KEY)   *SUM(RPT.booking_billing_amt_usd) over (partition by RPT.MONTH_CONTRACT_POID_KEY)=0 then 0 ELSE 
+        RPT.extended_list_price_usd / SUM(case when RPT.offering_type ='B' then RPT.extended_list_price_usd ELSE 0 END)
+       OVER (partition by RPT.MONTH_CONTRACT_POID_KEY)   *SUM(RPT.booking_billing_amt_usd) over (partition by RPT.MONTH_CONTRACT_POID_KEY) END
+     WHEN RPT.offering_type ='P' THEN RPT.booking_billing_amt_usd
+  ELSE 0 END        WHEN RPT.offering_type ='P' THEN 0 
+  WHEN (RPT.offering_type ='N' AND NVL(RPT.maintenance_term,0) >12 )  THEN
+  case when  NVL(RPT.maintenance_term,0)=0 then 0 else 
+  RPT.booking_billing_amt_usd / RPT.maintenance_term * 12 end
+       WHEN (RPT.offering_type ='N' AND NVL(RPT.maintenance_term,0) <=12 )  THEN RPT.booking_billing_amt_usd
+       ELSE 0       END as PC_BILLING_ACV,
+RPT.SOLD_TO_REGION_KEY,
+RPT.INFA_PERCENT_SPLIT
+ FROM
+   INSDM_LAM.imax_subs_rnwls_parentchild  RPT  
+   WHERE
+        lower(RPT.contr_status) <>'cancelled'
+   and lower(RPT.contr_group) <>'passthrough'
+   and RPT.BOOKED_DATE>=TO_DATE('01-JAN-2019','DD-MON-YYYY')
