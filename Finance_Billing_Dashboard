@@ -1,0 +1,171 @@
+select 
+--accounting_period_month,
+--contract_num "Contract Number",
+--contract_line_num,customer_name "Customer Name",
+--offering_catg "Revenue Category", 
+--dm_type_bu_prod_category "Offering Type", 
+--cal_quarter, cal_year,
+--cal_qtr_strt_dt,
+--cal_qtr_end_dt,
+sum(booking_amt_usd)  as booking_amt_usd,
+sum(booking_billing_amt_usd)as booking_billing_amt_usd,
+sum(edw_acv) as edw_acv,
+sum(gross_amt_usd)as gross_amt_usd, 
+sum(revenue_amt_tc) as revenue_amt_tc
+from 
+(
+    select a11.cal_month AS accounting_period_month, 
+        a11.cal_quarter, 
+        a11.cal_year, 
+        a11.cal_qtr_strt_dt,
+        a11.cal_qtr_end_dt,
+        a14.CONTRACT_NUM as contract_num, 
+        a14.CONTRACT_line_NUM as contract_line_num,
+        a19.CUST_NAME as customer_name, 
+        null as offering_catg, 
+        Case when a13.DM_TYPE in ('License','First Yr Maint', 'Renewal Maint') then a13.DM_TYPE
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT not in('Address Doctor','Alliances','Cloud') then 'On Prem'
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Address Doctor' then 'DaaS'   
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Cloud' then 'Cloud'  
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Alliances' then 'Other' 
+            when a13.DM_TYPE='Educational' then 'ES' 
+            when a13.DM_TYPE='Professional Srvc' then 'PS'
+            else Null
+        End as dm_type_bu_prod_category,
+        sum(booking_amt_usd) as booking_amt_usd,
+        sum(booking_billing_amt_usd) as booking_billing_amt_usd,
+        sum(edw_acv) as edw_acv,
+        0 AS gross_amt_usd,
+        0 as  revenue_amt_tc
+    from insdm_lam.booking_fact f
+    join DATE_DIM a11 on f.ACCOUNTING_period_DK = a11.DATE_KEY
+    join PRODUCT_RPT_HIERARCHY            a12 on (f.CUR_PRODUCT_HRY_ID = a12.PRODUCT_HRY_ID)
+               join PRODUCT_DIM         a13 on (f.PRODUCT_KEY = a13.PRODUCT_KEY) 
+    join CONTRACT_DIM  a14 on (f.CONTRACT_KEY = a14.CONTRACT_KEY)
+    join CUSTOMER_DIM  a19 on (f.SOLD_TO_CUSTOMER_KEY = a19.CUSTOMER_KEY)
+    where --a13.dm_type is not null
+        decode( a14.CONTR_STATUS, 'FUTURE','N','NEW','N','CANCELLED','N','Y') in ('Y')
+        and (CASE WHEN a14.CONTR_GROUP IS NOT NULL 
+        THEN ( decode(a14.SOURCE_ID,'PeopleSoftFinance',a14.CONTR_GROUP, decode(a14.CONTR_TYPE,'EXHIBIT-A','Exhibit-A','EX-A UPGRADE','Exhibit-A','RENEWAL','Renewal','PS','PS SRL','ES','ES SRL','Other'))) 
+        ELSE 'Unknown' END) not in ('Passthrough')
+    group by a11.cal_month,
+        a11.cal_quarter,
+        a11.cal_year,
+        a11.cal_qtr_strt_dt,
+        a11.cal_qtr_end_dt, 
+        a14.CONTRACT_NUM, a14.CONTRACT_line_NUM, a19.CUST_NAME, 9, 
+        Case when a13.DM_TYPE in ('License','First Yr Maint', 'Renewal Maint') then a13.DM_TYPE
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT not in('Address Doctor','Alliances','Cloud') then 'On Prem'
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Address Doctor' then 'DaaS'   
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Cloud' then 'Cloud'  
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Alliances' then 'Other' 
+            when a13.DM_TYPE='Educational' then 'ES' 
+            when a13.DM_TYPE='Professional Srvc' then 'PS'
+            else Null
+        End
+        , 11, 12, 13, 14
+    UNION ALL
+    select a11.cal_month AS accounting_period_month, 
+        a11.cal_quarter, 
+        a11.cal_year, 
+        a11.cal_qtr_strt_dt,
+        a11.cal_qtr_end_dt,
+       a14.CONTRACT_NUM as contract_num, 
+       a14.CONTRACT_line_NUM as contract_line_num,
+       a19.CUST_NAME as customer_name, 
+       null as offering_catg, 
+       Case when a13.DM_TYPE in ('License','First Yr Maint', 'Renewal Maint') then a13.DM_TYPE
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT not in('Address Doctor','Alliances','Cloud') then 'On Prem'
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Address Doctor' then 'DaaS'   
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Cloud' then 'Cloud'  
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Alliances' then 'Other' 
+            when a13.DM_TYPE='Educational' then 'ES' 
+            when a13.DM_TYPE='Professional Srvc' then 'PS'
+            else Null
+        End as dm_type_bu_prod_category,
+        0 as booking_amt_usd,
+        0 as booking_billing_amt_usd,
+        0 as edw_acv,
+        sum(f.gross_amt_usd) AS gross_amt_usd,
+        0 as revenue_amt_tc
+    from insdm_lam.invoice_fact f
+    join DATE_DIM a11 on f.INVOICED_DK = a11.DATE_KEY
+    join PRODUCT_RPT_HIERARCHY            a12
+                 on        (f.CUR_PRODUCT_HRY_ID = a12.PRODUCT_HRY_ID)
+               join        PRODUCT_DIM  a13
+                 on        (f.PRODUCT_KEY = a13.PRODUCT_KEY)
+      join  CONTRACT_DIM               a14
+                 on        (f.CONTRACT_KEY = a14.CONTRACT_KEY)
+      join  CUSTOMER_DIM              a19
+                 on        (f.SOLD_TO_CUSTOMER_KEY = a19.CUSTOMER_KEY)
+    where a13.dm_type is not null
+    group by a11.cal_month,
+    a11.cal_quarter,
+    a11.cal_year,
+    a11.cal_qtr_strt_dt,
+    a11.cal_qtr_end_dt, 
+    a14.CONTRACT_NUM, a14.CONTRACT_line_NUM, a19.CUST_NAME, 9, 
+    Case when a13.DM_TYPE in ('License','First Yr Maint', 'Renewal Maint') then a13.DM_TYPE
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT not in('Address Doctor','Alliances','Cloud') then 'On Prem'
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Address Doctor' then 'DaaS'   
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Cloud' then 'Cloud'  
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Alliances' then 'Other' 
+            when a13.DM_TYPE='Educational' then 'ES' 
+            when a13.DM_TYPE='Professional Srvc' then 'PS'
+            else Null
+        End, 11, 12, 13, 15
+    union all
+    select a11.cal_month AS accounting_period_month, 
+        a11.cal_quarter, 
+        a11.cal_year, 
+        a11.cal_qtr_strt_dt,
+        a11.cal_qtr_end_dt,
+        a14.CONTRACT_NUM as contract_num, 
+        a14.CONTRACT_line_NUM as contract_line_num,
+        a19.CUST_NAME as customer_name, 
+        null as offering_catg, 
+        Case when a13.DM_TYPE in ('License','First Yr Maint', 'Renewal Maint') then a13.DM_TYPE
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT not in('Address Doctor','Alliances','Cloud') then 'On Prem'
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Address Doctor' then 'DaaS'   
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Cloud' then 'Cloud'  
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Alliances' then 'Other' 
+            when a13.DM_TYPE='Educational' then 'ES' 
+            when a13.DM_TYPE='Professional Srvc' then 'PS'
+            else Null
+        End as dm_type_bu_prod_category,
+        sum(0) as booking_amt_usd,
+        sum(0) as booking_billing_amt_usd,
+        sum(0) as edw_acv,
+        sum(0) AS gross_amt_usd,
+        sum(f.REVENUE_AMT_USD) revenue_amt_tc
+    from insdm_lam.revenue_fact f
+    join DATE_DIM a11 on f.ACCOUNTING_DK = a11.DATE_KEY
+    join PRODUCT_RPT_HIERARCHY            a12 on (f.CUR_PRODUCT_HRY_ID = a12.PRODUCT_HRY_ID)
+               join PRODUCT_DIM         a13 on (f.PRODUCT_KEY = a13.PRODUCT_KEY) 
+    join CONTRACT_DIM  a14 on (f.CONTRACT_KEY = a14.CONTRACT_KEY)
+    join CUSTOMER_DIM  a19 on (f.SOLD_TO_CUSTOMER_KEY = a19.CUSTOMER_KEY)
+    where --a13.dm_type is not null
+        decode( a14.CONTR_STATUS, 'FUTURE','N','NEW','N','CANCELLED','N','Y') in ('Y')
+        and f.REVENUE_TYPE is not null
+        and (CASE WHEN a14.CONTR_GROUP IS NOT NULL 
+        THEN ( decode(a14.SOURCE_ID,'PeopleSoftFinance',a14.CONTR_GROUP, decode(a14.CONTR_TYPE,'EXHIBIT-A','Exhibit-A','EX-A UPGRADE','Exhibit-A','RENEWAL','Renewal','PS','PS SRL','ES','ES SRL','Other'))) 
+        ELSE 'Unknown' END) not in ('Passthrough')
+    group by a11.cal_month,
+        a11.cal_quarter,
+        a11.cal_year,
+        a11.cal_qtr_strt_dt,
+        a11.cal_qtr_end_dt, 
+        a14.CONTRACT_NUM, a14.CONTRACT_line_NUM, a19.CUST_NAME, 9, 
+        Case when a13.DM_TYPE in ('License','First Yr Maint', 'Renewal Maint') then a13.DM_TYPE
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT not in('Address Doctor','Alliances','Cloud') then 'On Prem'
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Address Doctor' then 'DaaS'   
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Cloud' then 'Cloud'  
+            when a13.DM_TYPE='Other' AND a12.BUSINESS_UNIT = 'Alliances' then 'Other' 
+            when a13.DM_TYPE='Educational' then 'ES' 
+            when a13.DM_TYPE='Professional Srvc' then 'PS'
+            else Null
+        End
+        --, 11, 12, 13, 14
+)
+where cal_quarter='2018-Q1'
+--group by accounting_period_month,contract_num,contract_line_num,customer_name,offering_catg, dm_type_bu_prod_category, cal_quarter, cal_year,cal_qtr_strt_dt,cal_qtr_end_dt
