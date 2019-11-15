@@ -1,0 +1,78 @@
+WITH 
+g2k_dup AS
+(SELECT * FROM 
+(select company_level,G2k_rank,company,territory_country,duns_number,global_duns_number, COUNT(g2K_rank) over (partition by G2K_RANK ORDER BY G2K_RANK) as mycount
+from sales_dm.g2k_master_rank_list group by G2k_rank,company,territory_country,duns_number,global_duns_number,company_level) where mycount >1), 
+
+g2k_uniq AS
+(SELECT * FROM 
+(select company_level,G2k_rank,company,territory_country,duns_number,global_duns_number, COUNT(g2K_rank) over (partition by G2K_RANK ORDER BY G2K_RANK) as mycount
+from sales_dm.g2k_master_rank_list group by G2k_rank,company,territory_country,duns_number,global_duns_number,company_level) where mycount =1) ,
+
+f1k_dup as 
+(SELECT * FROM 
+(select F1k_rank,company_name,company_level,duns_number,global_duns_number, COUNT(F1K_rank) over (partition by F1K_RANK ORDER BY F1K_RANK) as mycount
+from SALES_DM.F1K_MASTER_RANK_LIST group by F1k_rank,company_name,company_level,duns_number,global_duns_number) where mycount >1) ,
+
+f1k_uniq AS (
+SELECT * FROM 
+(select F1k_rank,company_name,company_level,duns_number,global_duns_number, COUNT(F1K_rank) over (partition by F1K_RANK ORDER BY F1K_RANK) as mycount
+from SALES_DM.F1K_MASTER_RANK_LIST group by F1k_rank,company_name,company_level,duns_number,global_duns_number) where mycount =1)
+
+SELECT
+NAME,
+new_org_account_number__c,
+accountnumber as old_org_accountnumber,
+DUNS__C AS DUNS_NUMBER,
+GLOBAL_ULTIMATE_NAME__C as GDUNS_NAME,
+GLOBAL_ULTIMATE_NUMBER__C AS GDUNS_NUMBER,
+NVL(g2k_rank_dup,g2k_rank_uniq) as G2K_RANK,
+NVL(f1k_rank_dup,F1K_rank_uniq) as F1K_RANK 
+
+FROM (
+
+select
+accountnumber,
+new_org_account_number__c,
+name,
+DUNS__C,
+GLOBAL_ULTIMATE_NAME__C,
+GLOBAL_ULTIMATE_NUMBER__C,
+g2k_dup.g2k_rank as g2k_rank_dup,
+g2k_dup.company as g2k_dup_company,
+g2k_uniq.g2k_rank as g2k_rank_uniq,
+g2k_uniq.company as g2k_uniq_company,
+
+f1k_dup.f1k_rank as f1k_rank_dup,
+f1k_dup.company_name as f1k_dup_company,
+f1k_uniq.f1k_rank as f1k_rank_uniq,
+f1k_uniq.company_name as f1k_uniq_company
+
+from sales_dm.account_n_dim  a 
+LEFT JOIN g2k_dup ON a.DUNS__C = g2k_dup.duns_number
+LEFT JOIN g2k_uniq on a.GLOBAL_ULTIMATE_NUMBER__C = g2k_uniq.global_duns_number
+
+LEFT JOIN f1k_dup on a.duns__c = f1k_dup.duns_number
+LEFT JOIN f1k_uniq on a.global_ultimate_number__c = f1k_uniq.global_duns_number
+
+where isdeleted =0 and accountnumber IS NOT NULL AND TYPE IN ('Prospect','Customer')
+
+GROUP BY 
+accountnumber,
+name,
+new_org_account_number__c,
+DUNS__C,
+GLOBAL_ULTIMATE_NAME__C,
+GLOBAL_ULTIMATE_NUMBER__C,
+g2k_dup.g2k_rank,
+g2k_dup.company,
+g2k_uniq.g2k_rank,
+g2k_uniq.company,
+f1k_dup.f1k_rank,
+f1k_dup.company_name,
+f1k_uniq.f1k_rank ,
+f1k_uniq.company_name
+) where NVL(g2k_rank_dup,g2k_rank_uniq) is not null OR NVL(f1k_rank_dup,F1K_rank_uniq) IS NOT NULL ;
+
+
+
