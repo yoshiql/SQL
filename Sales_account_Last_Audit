@@ -1,0 +1,75 @@
+(SELECT GLOBAL_ULTIMATE_NUMBER__C,
+  account_key,
+  opty_closed_date
+   AS LAST_AUDIT_OF_ACCOUNT,
+  case when global_opty_closed_date is null THEN Null
+  ELSE global_opty_closed_date
+  END AS LAST_AUDIT_OF_GDUNS_ACCOUNT
+FROM
+  (SELECT acc.GLOBAL_ULTIMATE_NUMBER__C,
+    temp.account_key,
+    temp.opty_closed_date,
+    MAX(temp.opty_closed_date) over (PARTITION BY acc.GLOBAL_ULTIMATE_NUMBER__C) global_opty_closed_date
+  FROM
+  (WITH T AS
+    (SELECT DISTINCT a.account_key,
+      b.ENGAGEMENT_KEY,
+      c.OPPORTUNITY_KEY,
+      c.closedate,
+      b.LICENSE_REPORT_ISSUE_DATE__C,
+      c.STAGENAME
+    FROM account_n_dim a,
+      engagement_n_dim b,
+      opty_n_dim c
+    WHERE a.account_key                =b.account_key
+    AND b.PT_INFA_LICENSE_COMPLIANCE__C=1
+    AND a.account_key                  =c.account_key
+    )
+  SELECT account_key,
+    MAX(closedate) AS opty_closed_date
+  FROM t
+  GROUP BY account_key,
+    ENGAGEMENT_KEY
+  HAVING COUNT(*)>1
+  UNION
+  SELECT account_key,
+    CASE
+      WHEN STAGENAME IN ('Closed Lost','Closed Won')
+      THEN closedate
+      ELSE LICENSE_REPORT_ISSUE_DATE__C
+    END AS opty_closed_date
+  FROM t
+  WHERE account_key IN
+    (SELECT account_key
+    FROM t
+    GROUP BY account_key,
+      ENGAGEMENT_KEY
+    HAVING COUNT(*)=1
+    )
+  UNION
+  SELECT ACCOUNT_KEY,
+    CASE
+      WHEN PT_INFA_LICENSE_COMPLIANCE__C!=1
+      THEN to_date('01-JAN-1900','DD-MON-YYYY')
+      ELSE closedate
+    END AS opty_closed_date
+  FROM
+    (SELECT a.ACCOUNT_KEY,
+      c.PT_INFA_LICENSE_COMPLIANCE__C,
+      MAX(c.closedate) AS closedate
+    FROM account_n_dim a,
+      account_dim b,
+      opty_dim c,
+      engagement_n_dim d
+    WHERE a.EXTERNAL_ID__C              =b.account_ID
+    AND b.ACCOUNT_KEY                   =c.ACCOUNT_KEY
+    AND a.ACCOUNT_KEY                   =d.ACCOUNT_KEY
+    AND d.PT_INFA_LICENSE_COMPLIANCE__C!=1
+    GROUP BY a.ACCOUNT_KEY,
+      c.PT_INFA_LICENSE_COMPLIANCE__C
+    )
+        ) temp,
+    account_n_dim acc
+  WHERE temp.ACCOUNT_KEY=acc.ACCOUNT_KEY
+  --order by temp.opty_closed_date
+  ) ) LAST_AUDIT_G
