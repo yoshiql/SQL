@@ -1,0 +1,130 @@
+select
+account_key,
+plan_key,
+max("Activity Type") Last_Digital_Activity,
+max(trunc(("Activity Date"))) as "Max Activity Date",
+case
+when max("Account Health") = 'Green'  OR ( trunc(sysdate) - max(trunc(("Activity Date")))     <= 30  and  min("Activity Type") = 'Email')  then 'High'
+when max("Account Health") = 'Yellow' OR ( trunc(sysdate) - max(trunc(("Activity Date")))     <= 45  and  min("Activity Type") = 'Email' ) then 'Moderate'
+when max("Account Health") = 'Red'    OR ( trunc(sysdate) - max(trunc(("Activity Date")))     >  45  and  min("Activity Type") = 'Email' ) then 'Low'
+else 'Low'
+END "Digital Customer Response",
+/*
+case
+when max("Account Health") = 'Green'  OR ( trunc(sysdate) - max(trunc(("Activity Date")))    <= 30  and   min("Activity Type") = 'Email' )  then 3
+when max("Account Health") = 'Yellow' OR ( trunc(sysdate) - max(trunc(("Activity Date")))    <= 45  and  min("Activity Type") = 'Email')   then 2
+when max("Account Health") = 'Red'    OR ( trunc(sysdate) - max(trunc(("Activity Date")))     > 45  and  min("Activity Type") = 'Email' )  then 1
+else 1
+END "Digital Customer Response Rank",
+*/
+--- digital plan classification
+case
+when sum(decode(engaged_activity,'Highly Engaged',1,0)) > 1 then 'Highly Engaged'
+when sum(decode(engaged_activity,'Highly Engaged',1,0)) = 1 then 'Engaged'
+when sum(decode(engaged_activity,'Engaged',1,0)) > 0  then 'Engaged'
+when sum(decode(engaged_activity,'Lightly Engaged',1,0)) > 0  then 'Lightly Engaged'
+else 'Never Engaged'
+end "Digital Plan Classification"
+/*
+--- digital plan rank
+case
+when sum(decode(engaged_activity,'Highly Engaged',1,0)) > 1 then 4
+when sum(decode(engaged_activity,'Highly Engaged',1,0)) = 1 then 3
+when sum(decode(engaged_activity,'Engaged',1,0)) > 0  then 3
+when sum(decode(engaged_activity,'Lightly Engaged',1,0)) > 0  then 2
+else 1
+end "D Plan Classification Rank"
+*/
+from
+(
+Select
+plan_n_dim.plan_key,
+plan_n_dim.plan_status__c,
+plan_n_dim.Account_key,
+"Activity Date",
+"Activity Type",
+"Activity ID",
+INITCAP(REGEXP_SUBSTR((ACCOUNT_HEALTH__C), 'alt="(\w*)"', 1, 1, 'i', 1)) "Account Health",
+case
+when trunc(sysdate)- trunc("Activity Date") <= 10                                          then 'Highly Engaged'
+when trunc(sysdate)- trunc("Activity Date") <= 60  and PLAN_STATUS__C = 'Green'            then 'Engaged'
+when trunc(sysdate)- trunc("Activity Date") <= 30  and PLAN_STATUS__C IN ('Yellow')        then 'Engaged'
+when trunc(sysdate)- trunc("Activity Date") <= 21  and PLAN_STATUS__C IN ('Red')           then 'Engaged'
+when trunc(sysdate)- trunc("Activity Date") <= 180 and PLAN_STATUS__C = 'Green'            then 'Lightly Engaged'
+when trunc(sysdate)- trunc("Activity Date") <= 180 and PLAN_STATUS__C IN ('Yellow','Red')  then 'Lightly Engaged'
+else 'Never Engaged'
+end  engaged_activity
+from
+sales_dm.PLAN_N_DIM
+left join
+(
+SELECT
+    'Email' "Activity Type",
+    e.EMAIL_MESSAGE_KEY "Activity Key",
+    e.PLAN_KEY "Plan Key (Activity)",
+    e.ID "Activity ID",
+    TO_CHAR(e.NAME) "Activity Name",
+    e.ORTOO_E2A__MESSAGE_DATE__C "Activity Date",
+    e.ORTOO_E2A__SUBJECT__C "Activity Subject",
+    TO_CHAR(e.ORTOO_E2A__FROM_ADDRESS__C) "Email From Address",
+    TO_CHAR(e.ORTOO_E2A__FROM_NAME__C) "Email From Name",
+    TO_CHAR(e.ORTOO_E2A__TO_ADDRESS__C) "Email To Address",
+    TO_CHAR(e.ORTOO_E2A__IMPORTANCE__C) "Email Importance",
+    TO_CHAR(e.ORTOO_E2A__STATUS__C) "Email Status",
+    CASE
+        WHEN e.ORTOO_E2A__INCOMING__C = 1 THEN 'Y'
+        ELSE 'N'
+    END "Email Incoming Flag",
+    e.RELATED_OPTY_PLAN_KEY "Email Related Opty Plan Key",
+    null "Event Start Date",
+    null "Event End Date",
+    'N/A' "Task Type",
+    'N/A' "Task Status",
+    'N/A' "Task Priority",
+    'N/A' "Task Recurrence Flag",
+    'N/A' "Task Outcome",
+    'N/A' "Task Outcome Days"
+FROM
+    SALES_DM.EMAILMESSAGE_N_DIM e
+WHERE
+    e.PLAN_KEY IS NOT NULL
+    AND e.ISDELETED = 0
+    and e.NAME != 'Test'
+    and TO_CHAR(e.ORTOO_E2A__FROM_ADDRESS__C) not like '%@informatica.com%'
+UNION
+SELECT
+    'Event' "Type",
+    e.EVENT_KEY "Activity Key",
+    e.PLAN_KEY "Plan Key (Activity)",
+    e.ID "Activity ID",
+    TO_CHAR(e.DESCRIPTION) "Activity Name",
+    e.ACTIVITYDATE "Activity Date",
+    e.SUBJECT "Activity Subject",
+    'N/A' "Email From Address",
+    'N/A' "Email From Name",
+    'N/A' "Email To Address",
+    'N/A' "Email Importance",
+    'N/A' "Email Status",
+    'N/A' "Email Incoming Flag",
+    null "Email Related Opty Plan Key",
+    e.STARTDATETIME "Event Start Date",
+    e.ENDDATETIME "Event End Date",
+    'N/A' "Task Type",
+    'N/A' "Task Status",
+    'N/A' "Task Priority",
+    'N/A' "Task Recurrence Flag",
+    'N/A' "Task Outcome",
+    'N/A' "Task Outcome Days"
+FROM
+    SALES_DM.EVENT_N_DIM e
+WHERE
+    e.PLAN_KEY IS NOT NULL
+    AND e.ISDELETED = 0
+)    plan_activities on (PLAN_N_DIM.plan_key = plan_activities."Plan Key (Activity)")
+join sales_dm.ACCOUNT_N_DIM on (ACCOUNT_N_DIM.ACCOUNT_KEY = PLAN_N_DIM.ACCOUNT_KEY)
+where PLAN_N_DIM.current_flg = 'Y'
+and PLAN_N_DIM.isdeleted = 0
+--and new_org_account_number__c = 'A20034946'
+--and PLAN_N_DIM.ID = 'a3Q41000000e4hfEAA'
+)
+group by plan_key,account_key;
