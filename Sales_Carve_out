@@ -1,0 +1,63 @@
+select * from (
+with ratio_q as
+(select OPPORTUNITY_KEY, 
+sum(case when family ='Subscription Support' then (USD_UPSELL_ACV__C) end) as Success_U,
+sum(case when family !='Subscription Support' then (USD_UPSELL_ACV__C) end) as every_else_U,
+sum(case when family ='Subscription Support' then (USD_NEW_ACV__C) end) as Success_N,
+sum(case when family !='Subscription Support' then (USD_NEW_ACV__C) end) as every_else_N,
+sum(case when family ='Subscription Support' then (USD_RENEWAL_ACV__C) end) as Success_R,
+sum(case when family !='Subscription Support' then (USD_RENEWAL_ACV__C) end) as every_else_R,
+sum(case when family ='Subscription Support' then (USD_TOTAL_ACV) end) as Success_T,
+sum(case when family !='Subscription Support' then (USD_TOTAL_ACV) end) as every_else_T,
+sum(case when family ='Subscription Support' then (LC_UPSELL_ACV__C) end) as Success_LU,
+sum(case when family !='Subscription Support' then (LC_UPSELL_ACV__C) end) as every_else_LU,
+sum(case when family ='Subscription Support' then (LC_NEW_ACV__C) end) as Success_LN,
+sum(case when family !='Subscription Support' then (LC_NEW_ACV__C) end) as every_else_LN,
+sum(case when family ='Subscription Support' then (LC_RENEWAL_ACV__C) end) as Success_LR,
+sum(case when family !='Subscription Support' then (LC_RENEWAL_ACV__C) end) as every_else_LR,
+sum(case when family ='Subscription Support' then (LC_TOTAL_ACV) end) as Success_LT,
+sum(case when family !='Subscription Support' then (LC_TOTAL_ACV) end) as every_else_LT
+from SALES_FACT_FORECAST_SUMMARY_T
+--where  OPPORTUNITY_KEY = 59714
+group by OPPORTUNITY_KEY
+)
+select A.* , --A.OPPORTUNITY_KEY, USD_UPSELL_ACV__C ,pricing_business_model__c,family ,
+case when (ratio_q.Success_U =0 OR RATIO_Q.every_else_U =0) THEN 0 WHEN
+(family ='Subscription Support') then USD_UPSELL_ACV__C/ratio_q.Success_U ELSE USD_UPSELL_ACV__C/RATIO_Q.every_else_U end RATIO_U,
+case when (ratio_q.Success_U =0 OR RATIO_Q.every_else_U =0) THEN 0 WHEN
+(family !='Subscription Support') then ROUND((USD_UPSELL_ACV__C/RATIO_Q.every_else_U) * RATIO_Q.Success_U ,4) END USD_UPSELL_ACV_TETRIS_ALCTN,
+case when (ratio_q.Success_N =0 OR RATIO_Q.every_else_N =0) THEN 0 WHEN 
+(family ='Subscription Support') then USD_NEW_ACV__C/ratio_q.Success_N ELSE USD_NEW_ACV__C/RATIO_Q.every_else_N end RATIO_N,
+case when (ratio_q.Success_N =0 OR RATIO_Q.every_else_N =0) THEN 0  when 
+(family !='Subscription Support') then ROUND((USD_NEW_ACV__C/RATIO_Q.every_else_N) * RATIO_Q.Success_N , 4) END USD_NEW_ACV_TETRIS_ALCTN,
+case when (ratio_q.Success_R =0 OR RATIO_Q.every_else_R =0) THEN 0 WHEN
+(family ='Subscription Support') then USD_RENEWAL_ACV__C/ratio_q.Success_R ELSE USD_RENEWAL_ACV__C/RATIO_Q.every_else_R end RATIO_R,
+case when (ratio_q.Success_R =0 OR RATIO_Q.every_else_R =0) THEN 0 WHEN
+(family !='Subscription Support') then ROUND((USD_RENEWAL_ACV__C/RATIO_Q.every_else_R) * RATIO_Q.Success_R , 4) END USD_RENEWAL_ACV_TETRIS_ALCTN,
+case when (ratio_q.Success_T =0 OR RATIO_Q.every_else_T =0) THEN 0 WHEN
+(family ='Subscription Support') then USD_TOTAL_ACV/ratio_q.Success_T ELSE USD_TOTAL_ACV/RATIO_Q.every_else_T end RATIO_T,
+case when (ratio_q.Success_T =0 OR RATIO_Q.every_else_T =0) THEN 0 WHEN
+(family !='Subscription Support') then ROUND((USD_TOTAL_ACV/RATIO_Q.every_else_T) * RATIO_Q.Success_T , 4) END USD_TOTAL_ACV_TETRIS_ALCTN,
+
+ 
+
+case when (ratio_q.Success_LU =0 OR RATIO_Q.every_else_LU =0) THEN 0 WHEN 
+(family ='Subscription Support') then LC_UPSELL_ACV__C/ratio_q.Success_LU ELSE LC_UPSELL_ACV__C/RATIO_Q.every_else_LU end RATIO_LU,
+case when (ratio_q.Success_LU =0 OR RATIO_Q.every_else_LU =0) THEN 0 WHEN 
+(family !='Subscription Support') then (LC_UPSELL_ACV__C/RATIO_Q.every_else_LU) * RATIO_Q.Success_LU END LC_UPSELL_ACV_TETRIS_ALCTN,
+case when (ratio_q.Success_LN =0 OR RATIO_Q.every_else_LN =0) THEN 0 WHEN 
+(family ='Subscription Support') then LC_NEW_ACV__C/ratio_q.Success_LN ELSE USD_NEW_ACV__C/RATIO_Q.every_else_LN end RATIO_LN,
+case when (ratio_q.Success_LN =0 OR RATIO_Q.every_else_LN =0) THEN 0 when 
+(family !='Subscription Support') then (LC_NEW_ACV__C/RATIO_Q.every_else_LN) * RATIO_Q.Success_LN END LC_NEW_ACV_TETRIS_ALCTN,
+case when (ratio_q.Success_LR =0 OR RATIO_Q.every_else_LR =0) THEN 0 when
+(family ='Subscription Support') then LC_RENEWAL_ACV__C/ratio_q.Success_LR ELSE LC_RENEWAL_ACV__C/RATIO_Q.every_else_LR end RATIO_LR,
+case when (ratio_q.Success_LR =0 OR RATIO_Q.every_else_LR =0) THEN 0 when
+(family !='Subscription Support') then (LC_RENEWAL_ACV__C/RATIO_Q.every_else_LR) * RATIO_Q.Success_LR END LC_RENEWAL_ACV_TETRIS_ALCTN,
+case when (ratio_q.Success_LT =0 OR RATIO_Q.every_else_LT =0) THEN 0 when
+(family ='Subscription Support') then LC_TOTAL_ACV/ratio_q.Success_LT ELSE LC_TOTAL_ACV/RATIO_Q.every_else_LT end RATIO_LT,
+case when (ratio_q.Success_LT =0 OR RATIO_Q.every_else_LT =0) THEN 0 when
+(family !='Subscription Support') then (LC_TOTAL_ACV/RATIO_Q.every_else_LT) * RATIO_Q.Success_LT END LC_TOTAL_ACV_TETRIS_ALCTN
+from SALES_FACT_FORECAST_SUMMARY_T A, RATIO_Q
+where  A.OPPORTUNITY_KEY = ratio_q.OPPORTUNITY_KEY
+)
+);
