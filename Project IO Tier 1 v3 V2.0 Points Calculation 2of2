@@ -1,0 +1,414 @@
+SET queryrequest.accounting_group 'youtube-pd-placer-write';
+--RUN google::project_io_permissions();
+DEFINE MACRO map_table youtube_pd_project_io.offering_tier1_v3_map;
+DEFINE MACRO opportunity_table youtube_pd_project_io.opportunities_tier1_v3_live ;
+DEFINE MACRO metrics_table youtube_pd_project_io.metrics_tier1_v3_table;
+DEFINE MACRO pro_table youtube_pd_project_io.pro_tier1_v3_table;
+DEFINE MACRO implementation_table youtube_pd_project_io.io_implementation_tier1_v3 ;
+DEFINE MACRO country_bands_table youtube_pd_project_io.country_tier1_v3_metrics;
+DEFINE MACRO opty_table youtube_pd_project_io.io_opty_tier1_v3_base;
+DEFINE MACRO points_table youtube_pd_project_io.points_tier1_v3_table;
+DEFINE MACRO points_table_dated youtube_pd_project_io.points_table_tier1_v3_dated;
+
+CREATE OR REPLACE TABLE $points_table_dated ## Added tier1 
+  OPTIONS (
+    format = 'capacitor',
+    path = '/placer/test/home/youtube-pd-placer-write/plx/Project_IO_tier1_v3/Points_Tracking/points_table_tier1/${YYYY}/${MM}/${DD}/points_tier1_v3_table@unsharded', ## Added tier1
+    mdb_group = 'youtube-pd-placer-write',
+    overwrite_directory = TRUE,
+    order_by = "pro_id ASC"
+  )
+AS
+
+with
+  io_metrics_temp_table AS (
+    select
+      "${YYYY}-${MM}-${DD}" AS PARTITIONDATE,
+      date_id,
+      pro.pro_name pro_name,
+      pro.spm_ldap SPM_LDAP,
+      pro.pro_country_code COUNTRY_CODE,
+      pro.pro_id,
+      views,
+      watch_time_hr,
+      views_ad_enabled,
+      user_subscriptions_added,
+      video_shares,
+      video_comments_added,
+      video_likes_added,
+      gross_ad_revenue_usd,
+      earnings_usd,
+      ad_impressions,
+      transaction_earnings_usd,
+      earnings_usd_superchat,
+      earnings_usd_superstickers,
+      earnings_usd_supervod,
+      earnings_usd_sponsorships,
+      monetized_views,
+      daily_videos_added,
+      google_preferred_ad_impressions,
+      views_avg_daily_change,
+      watch_time_hr_avg_daily_change,
+      views_ad_enabled_avg_daily_change,
+      user_subscriptions_added_avg_daily_change,
+      video_shares_avg_daily_change,
+      video_comments_added_avg_daily_change,
+      video_likes_added_avg_daily_change,
+      gross_ad_revenue_usd_avg_daily_change,
+      earnings_usd_avg_daily_change,
+      ad_impressions_avg_daily_change,
+      transaction_earnings_usd_avg_daily_change,
+      earnings_usd_superchat_avg_daily_change,
+      earnings_usd_superstickers_avg_daily_change,
+      earnings_usd_supervod_avg_daily_change,
+      earnings_usd_sponsorships_avg_daily_change,
+      monetized_views_avg_daily_change,
+      daily_videos_added_avg_daily_change,
+      google_preferred_ad_impressions_avg_daily_change
+    from $metrics_table base ## Added tier1 
+    LEFT JOIN $pro_table pro  USING (pro_id)
+    ### This filter ensures that the data selected only has external_channel_id present in the opportunity table
+    where
+      base.pro_id IN (
+        select distinct pro_id
+        from $opportunity_table ## Added tier1 
+      )
+  ),
+  ################################################################################################################
+  ################################################################################################################
+  ######### SECOND TABLE STARTS HERE #############################################################################
+  io_metrics_table AS (
+    SELECT
+      base.DATE_ID, base.PRO_ID, base.METRIC_LIST, base.metric,
+    FROM
+      (
+        select
+          DATE(
+            cast(substr(cast(date_id as string), 0, 4) as int64),
+            cast(substr(cast(date_id as string), 5, 2) as int64),
+            cast(substr(cast(date_id as string), 7) as int64)
+          ) as DATE_ID,
+          PRO_ID,
+          METRIC_LIST,
+          case METRIC_LIST
+            when 'views' then views
+            when 'watch_time_hr'
+              then watch_time_hr  -- Add the formula from country bands
+            when 'views_ad_enabled' then views_ad_enabled
+            when 'user_subscriptions_added' then user_subscriptions_added
+            when 'video_shares' then video_shares
+            when 'video_comments_added' then video_comments_added
+            when 'video_likes_added' then video_likes_added
+            when 'gross_ad_revenue_usd' then gross_ad_revenue_usd
+            when 'earnings_usd' then earnings_usd
+            when 'ad_impressions' then ad_impressions
+            when 'transaction_earnings_usd' then transaction_earnings_usd
+            when 'earnings_usd_superchat' then earnings_usd_superchat
+            when 'earnings_usd_superstickers' then earnings_usd_superstickers
+            when 'earnings_usd_supervod' then earnings_usd_supervod
+            when 'earnings_usd_sponsorships' then earnings_usd_sponsorships
+            when 'monetized_views' then monetized_views
+            when 'daily_videos_added' then daily_videos_added
+            when 'google_preferred_ad_impressions'
+              then google_preferred_ad_impressions
+            when 'views_avg_daily_change' then views_avg_daily_change
+            when 'watch_time_hr_avg_daily_change'
+              then watch_time_hr_avg_daily_change
+            when 'views_ad_enabled_avg_daily_change'
+              then views_ad_enabled_avg_daily_change
+            when 'user_subscriptions_added_avg_daily_change'
+              then user_subscriptions_added_avg_daily_change
+            when 'video_shares_avg_daily_change'
+              then video_shares_avg_daily_change
+            when 'video_comments_added_avg_daily_change'
+              then video_comments_added_avg_daily_change
+            when 'video_likes_added_avg_daily_change'
+              then video_likes_added_avg_daily_change
+            when 'gross_ad_revenue_usd_avg_daily_change'
+              then gross_ad_revenue_usd_avg_daily_change
+            when 'earnings_usd_avg_daily_change'
+              then earnings_usd_avg_daily_change
+            when 'ad_impressions_avg_daily_change'
+              then ad_impressions_avg_daily_change
+            when 'transaction_earnings_usd_avg_daily_change'
+              then transaction_earnings_usd_avg_daily_change
+            when 'earnings_usd_superchat_avg_daily_change'
+              then earnings_usd_superchat_avg_daily_change
+            when 'earnings_usd_superstickers_avg_daily_change'
+              then earnings_usd_superstickers_avg_daily_change / 1e6
+            when 'earnings_usd_supervod_avg_daily_change'
+              then earnings_usd_supervod_avg_daily_change / 1e6
+            when 'earnings_usd_sponsorships_avg_daily_change'
+              then earnings_usd_sponsorships_avg_daily_change
+            when 'monetized_views_avg_daily_change'
+              then monetized_views_avg_daily_change
+            when 'daily_videos_added_avg_daily_change'
+              then daily_videos_added_avg_daily_change
+            when 'google_preferred_ad_impressions_avg_daily_change'
+              then google_preferred_ad_impressions_avg_daily_change
+            END METRIC_RAW,
+          case METRIC_LIST
+            when 'views' then views
+            when 'watch_time_hr' then watch_time_hr
+            when 'views_ad_enabled' then views_ad_enabled
+            when 'user_subscriptions_added' then user_subscriptions_added
+            when 'video_shares' then video_shares
+            when 'video_comments_added' then video_comments_added
+            when 'video_likes_added' then video_likes_added
+            when 'gross_ad_revenue_usd' then gross_ad_revenue_usd
+            when 'earnings_usd' then earnings_usd
+            when 'ad_impressions' then ad_impressions
+            when 'transaction_earnings_usd' then transaction_earnings_usd
+            when 'earnings_usd_superchat' then earnings_usd_superchat
+            when 'earnings_usd_superstickers' then earnings_usd_superstickers
+            when 'earnings_usd_supervod' then earnings_usd_supervod
+            when 'earnings_usd_sponsorships' then earnings_usd_sponsorships
+            when 'monetized_views' then monetized_views
+            when 'daily_videos_added' then daily_videos_added
+            when 'google_preferred_ad_impressions'
+              then google_preferred_ad_impressions
+            when 'views_avg_daily_change' then views_avg_daily_change
+            when 'watch_time_hr_avg_daily_change'
+              then watch_time_hr_avg_daily_change
+            when 'views_ad_enabled_avg_daily_change'
+              then views_ad_enabled_avg_daily_change
+            when 'user_subscriptions_added_avg_daily_change'
+              then user_subscriptions_added_avg_daily_change
+            when 'video_shares_avg_daily_change'
+              then video_shares_avg_daily_change
+            when 'video_comments_added_avg_daily_change'
+              then video_comments_added_avg_daily_change
+            when 'video_likes_added_avg_daily_change'
+              then video_likes_added_avg_daily_change
+            when 'gross_ad_revenue_usd_avg_daily_change'
+              then gross_ad_revenue_usd_avg_daily_change
+            when 'earnings_usd_avg_daily_change'
+              then earnings_usd_avg_daily_change
+            when 'ad_impressions_avg_daily_change'
+              then ad_impressions_avg_daily_change
+            when 'transaction_earnings_usd_avg_daily_change'
+              then transaction_earnings_usd_avg_daily_change
+            when 'earnings_usd_superchat_avg_daily_change'
+              then earnings_usd_superchat_avg_daily_change
+            when 'earnings_usd_superstickers_avg_daily_change'
+              then earnings_usd_superstickers_avg_daily_change
+            when 'earnings_usd_supervod_avg_daily_change'
+              then earnings_usd_supervod_avg_daily_change
+            when 'earnings_usd_sponsorships_avg_daily_change'
+              then earnings_usd_sponsorships_avg_daily_change
+            when 'monetized_views_avg_daily_change'
+              then monetized_views_avg_daily_change
+            when 'daily_videos_added_avg_daily_change'
+              then daily_videos_added_avg_daily_change
+            when 'google_preferred_ad_impressions_avg_daily_change'
+              then google_preferred_ad_impressions_avg_daily_change
+            END METRIC
+        from
+          io_metrics_temp_table base,
+          unnest(
+            [
+              'views',
+              'watch_time_hr',
+              'views_ad_enabled',
+              'user_subscriptions_added',
+              'video_shares',
+              'video_comments_added',
+              'video_likes_added',
+              'gross_ad_revenue_usd',
+              'earnings_usd',
+              'ad_impressions',
+              'transaction_earnings_usd',
+              'earnings_usd_superchat',
+              'earnings_usd_superstickers',
+              'earnings_usd_supervod',
+              'earnings_usd_sponsorships',
+              'monetized_views',
+              'daily_videos_added',
+              'google_preferred_ad_impressions',
+              'views_avg_daily_change',
+              'watch_time_hr_avg_daily_change',
+              'views_ad_enabled_avg_daily_change',
+              'user_subscriptions_added_avg_daily_change',
+              'video_shares_avg_daily_change',
+              'video_comments_added_avg_daily_change',
+              'video_likes_added_avg_daily_change',
+              'gross_ad_revenue_usd_avg_daily_change',
+              'earnings_usd_avg_daily_change',
+              'ad_impressions_avg_daily_change',
+              'transaction_earnings_usd_avg_daily_change',
+              'earnings_usd_superchat_avg_daily_change',
+              'earnings_usd_superstickers_avg_daily_change',
+              'earnings_usd_supervod_avg_daily_change',
+              'earnings_usd_sponsorships_avg_daily_change',
+              'monetized_views_avg_daily_change',
+              'daily_videos_added_avg_daily_change',
+              'google_preferred_ad_impressions_avg_daily_change'
+            ]
+          ) METRIC_LIST
+      ) base
+    GROUP BY 1, 2, 3, 4
+  )
+
+SELECT * FROM (
+
+select distinct
+partitiondate,
+ldap,
+country_code,
+pro_id,
+offering_id,
+offering_description,
+pitch_date,
+metric_list,
+pre_metric,
+post_metric,
+change,
+normalised_change,
+points_calc,
+
+COALESCE(
+        PRE_METRIC_IMPLEMENTATION_PERCENT, PRE_METRIC_IMPLEMENTATION_NUMBER
+      ) as pre_metric_implementation,
+COALESCE(
+        POST_METRIC_IMPLEMENTATION_PERCENT, POST_METRIC_IMPLEMENTATION_NUMBER
+      ) as post_metric_implementation,
+country_metric as country_metric
+FROM 
+(SELECT DISTINCT
+"${YYYY}-${MM}-${DD}" as PARTITIONDATE,
+ldap,
+base.country_code,
+base.pro_id,
+base.offering_id,
+base.offering_description,
+pitch_date,
+pre_metric,
+post_metric,
+base.metric_list,
+(post_metric - pre_metric) as change,
+-- CASE WHEN country.metric >0 THEN SAFE_DIVIDE((post_metric - pre_metric),IFNULL(country.metric,0)*14) WHEN country.metric = 0 THEN (post_metric - pre_metric) ELSE (post_metric - pre_metric) / ABS(country.metric) END  as points_calc,
+CASE WHEN (country.metric * 14 > 0 AND (post_metric - pre_metric) > 0) THEN safe_divide((post_metric - pre_metric), country.metric * 14)
+     WHEN (country.metric * 14 > 0 AND (post_metric - pre_metric) < 0) THEN safe_divide((post_metric - pre_metric), country.metric * 14)
+     WHEN (country.metric * 14 > 0 AND (post_metric - pre_metric) = 0) THEN 0
+     WHEN (country.metric * 14 < 0 and (post_metric - pre_metric) > 0) then abs(safe_divide((post_metric - pre_metric),country.metric*14))*2
+    
+     WHEN (country.metric * 14 < 0 and (post_metric - pre_metric) = 0) then 0   
+     WHEN (country.metric * 14 < 0 and (post_metric - pre_metric < 0) and (post_metric - pre_metric) > country.metric*14 ) then safe_divide((post_metric - pre_metric), country.metric * 14)
+     WHEN (country.metric * 14 < 0 and (post_metric - pre_metric < 0) and (post_metric - pre_metric) <= country.metric*14 ) then 0
+     WHEN (country.metric * 14 = 0 and (post_metric - pre_metric <=0)) then 0
+     WHEN (country.metric * 14 = 0 and (post_metric - pre_metric > 0)) then (post_metric - pre_metric)
+     ELSE 0 END as points_calc,
+SAFE_DIVIDE((post_metric - pre_metric),IFNULL(country.metric,0)*14) as normalised_change,
+-- SAFE_DIVIDE((post_metric - pre_metric),IFNULL(country.metric,0)*14) as points_calc,
+
+ROUND(
+        MAX(
+          CASE
+            WHEN
+                imp.date_id_converted < base.pitch_date
+                AND imp.date_id_converted >= base.pitch_date_minus
+                AND imp.METRIC_TYPE = 'PERCENT'
+              THEN nullif(imp.metric, 0)
+            ELSE NULL
+            END
+        ),
+        2
+      ) as PRE_METRIC_IMPLEMENTATION_PERCENT,
+ROUND(
+        MAX(
+          CASE
+            WHEN
+                imp.date_id_converted < base.pitch_date
+                AND imp.date_id_converted >= base.pitch_date_minus
+                AND imp.METRIC_TYPE = 'NUMBER'
+              THEN nullif(imp.metric, 0)
+            ELSE NULL
+            END
+        ),
+        2
+      ) as PRE_METRIC_IMPLEMENTATION_NUMBER,
+        ROUND(
+        MAX(
+          CASE
+            WHEN
+                imp.date_id_converted >= base.pitch_date
+                AND imp.date_id_converted < base.pitch_date_plus
+                AND imp.METRIC_TYPE = 'PERCENT'
+              THEN nullif(imp.metric, 0)
+            ELSE NULL
+            END
+        ),
+        2
+      ) as POST_METRIC_IMPLEMENTATION_PERCENT,
+            ROUND(
+        MAX(
+          CASE
+            WHEN
+                imp.date_id_converted >= base.pitch_date
+                AND imp.date_id_converted < base.pitch_date_plus
+                AND imp.METRIC_TYPE = 'NUMBER'
+              THEN nullif(imp.metric, 0)
+            ELSE NULL
+            END
+        ),
+        2
+      ) as POST_METRIC_IMPLEMENTATION_NUMBER,
+    max(country.metric) as country_metric
+      
+FROM
+(select
+ ldap,
+ base.country_code,
+ base.pro_id,
+ base.offering_id,
+ base.offering_description,
+ pitch_date,
+ opty_kpi,
+ pitch_date_minus, 
+ pitch_date_plus,
+ implementation_reference,
+ metric_list,
+ROUND( SUM( CASE when metrics.date_id < pitch_date AND metrics.date_id >= pitch_date_minus THEN IFNULL(metrics.metric,0) ELSE 0 END),2) as PRE_METRIC,
+ROUND( SUM( CASE when metrics.date_id >= pitch_date AND metrics.date_id < pitch_date_plus THEN IFNULL(metrics.metric,0) ELSE 0 END),2) as POST_METRIC
+
+FROM
+(select
+pro.spm_ldap as ldap,
+pro.pro_country_code as country_code,
+pro.pro_id,
+opty.offering_id,
+opty.offering_description,
+opty.pitch_date as pitch_date,
+opty.kpi  as opty_kpi,
+map.implementation_reference,
+map.kpi_reference,
+map.country_metrics_reference,
+map.metric_type,
+pitch_date_plus,
+pitch_date_minus
+
+FROM (SELECT *, date_add(pitch_date,INTERVAL 14 DAY) as pitch_date_plus, date_sub(pitch_date, INTERVAL 14 DAY) as pitch_date_minus from $opportunity_table where pitch_date is not null AND DATE_DIFF(current_date(), pitch_date, day) <= 16 ) opty
+LEFT JOIN $pro_table pro using (pro_id)
+LEFT JOIN $map_table map on opty.offering_id = cast(map.offering_id as string)) base
+
+LEFT JOIN io_metrics_table metrics on base.pro_id = metrics.pro_id AND base.KPI_REFERENCE = metrics.METRIC_LIST
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11) base
+LEFT JOIN $map_table map on cast(base.offering_id as string) = cast(map.offering_id as string)
+LEFT JOIN $country_bands_table country on base.country_code = country.country_code AND map.COUNTRY_METRICS_REFERENCE = country.metric_list
+LEFT JOIN $implementation_table imp on base.pro_id = imp.pro_id AND base.implementation_reference = imp.metric_list
+
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13)); 
+
+
+CREATE OR REPLACE EXTERNAL TABLE $points_table ## Added tier1
+  OPTIONS (
+    format = 'ds_proto',
+    ds_proto = """
+    replica {
+      capacitor {
+         path:'/placer/test/home/youtube-pd-placer-write/plx/Project_IO_tier1_v3/Points_Tracking/points_table_tier1/\${YYYY}/\${MM}/\${DD}/points_tier1_v3_table*'
+      }
+    }
+    data_owner:'mdb/youtube-pd-placer-write'
+  """
+  );
