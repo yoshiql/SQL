@@ -1,0 +1,271 @@
+SET queryrequest.accounting_group 'youtube-pd-placer-write';
+SET QueryRequest.num_workers = 400;
+
+-- CREATE OR REPLACE EXTERNAL TABLE youtube_pd_project_io.pipeline_aggregation_tier1_v3 ## Added tier1
+--   OPTIONS (
+--     format = 'ds_proto',
+--     ds_proto = """
+--     replica {
+--       capacitor {
+--          path:'/placer/test/home/youtube-pd-placer-write/plx/Project_IO_tier1_v3/pipeline_aggregation_tier1/\${YYYY}/\${MM}/\${DD}/pipeline_aggregation_tier1_v3_table*'
+--       }
+--     }
+--     data_owner:'mdb/youtube-pd-placer-write'
+--   """
+--   );
+
+-- CREATE OR REPLACE TABLE youtube_pd_project_io.pipeline_aggregation_latest_tier1_v3  ## Added tier1
+--   OPTIONS (
+--     format = 'capacitor',
+--     path = '/placer/test/home/youtube-pd-placer-write/plx/Project_IO_tier1_v3/scorecard_table/scorecard_tier1_table@unsharded',
+--     mdb_group = 'youtube-pd-placer-write',
+--     overwrite_directory = TRUE,
+--     order_by = "LDAP ASC"
+--   )
+-- AS
+
+-- SELECT LDAP, planned, pitched, agreed, implemented, pi
+-- FROM youtube_pd_project_io.pipeline_aggregation_tier1_v3.today;
+
+## Added tier1
+DEFINE MACRO map_table youtube_pd_project_io.offering_tier1_v3_map;
+DEFINE MACRO points_table youtube_pd_project_io.points_tier1_v3_table.all;
+DEFINE MACRO offering_table youtube_pd_project_io.offering_tier1_table_v3;
+DEFINE MACRO implementation_table youtube_pd_project_io.io_implementation_tier1_v3;
+DEFINE MACRO offering_map youtube_pd_project_io.offering_tier1_v3_map;
+DEFINE MACRO implemented_table_uplift youtube_pd_project_io.implemented_table_max_uplift_ranking_tier1_v3;
+DEFINE MACRO pro_table  youtube_pd_project_io.pro_tier1_v3_table;
+DEFINE MACRO implemented_table youtube_pd_project_io.implemented_tier1_v3_table;
+
+CREATE OR REPLACE TABLE $implemented_table_uplift
+AS
+WITH  ## creating temp table metrics_reference so that we classify the metrics as "percent","boolean","number etc"
+  metrics_reference as (
+    select DISTINCT
+      base.offering_id,
+      base.implementation_reference,
+      metrics.metric_type,
+      boolean.current_value as boolean_text
+    from $map_table  base
+    left join
+      (select distinct metric_list,metric_type from youtube_pd_project_io.io_implementation_tier1_v3) ## Instead of joining the whole table, added distinct two columns only since this is generating a hash join error
+      metrics
+      on base.implementation_reference = metrics.metric_list
+    left join
+      (
+        select DISTINCT
+          offering_id,
+          regexp_replace(current_value, "Not ", "") as current_value
+        from $offering_table
+        where
+          offering_id IN (
+            select offering_id
+            from $offering_map
+            where boolean_field IS TRUE
+          )
+      ) boolean
+      using (offering_id)
+    order by 1
+  )
+
+
+SELECT DISTINCT
+  country_code,
+  ldap,
+  pro_id,
+  offering_id,
+  pitch_date,
+  date_of_max_uplift,
+  case
+    when metric_type = 'PERCENT'
+      THEN CONCAT(CAST(round(MAX_UPLIFT * 100, 0) as string), "%")
+    when metric_type = 'NUMBER' THEN CAST(ROUND(max_uplift, 2) as string)
+    WHEN metric_type = 'BOOL' THEN boolean_text
+    ELSE cast(max_uplift as string)
+    end max_uplift
+FROM
+  (
+    SELECT
+      country_code,
+      ldap,
+      pro_id,
+      base.offering_id,
+      pitch_date,
+      partitiondate AS date_of_max_uplift,
+      metric_type,
+      boolean_text,
+      (
+        IFNULL(post_metric_implementation, 0)
+        - IFNULL(pre_metric_implementation, 0)
+      ) AS max_uplift,
+    FROM
+      (
+        SELECT
+          partitiondate,
+          country_code,
+          ldap,
+          pro_id,
+          offering_id,
+          pitch_date,
+          post_metric_implementation,
+          pre_metric_implementation,
+          RANK()
+            OVER (
+              PARTITION BY ldap, pro_id, offering_id, pitch_date
+              ORDER BY
+                post_metric_implementation - pre_metric_implementation DESC,
+                partitiondate ASC
+            ) AS ranked
+        FROM $points_table
+        WHERE
+          IFNULL(pre_metric_implementation, 0)
+          < IFNULL(post_metric_implementation, 0)
+      ) base
+    LEFT JOIN
+      metrics_reference
+      on cast(base.offering_id as string) = cast(metrics_reference.offering_id as string)
+    WHERE ranked = 1
+    GROUP BY
+      country_code,
+      ldap,
+      pro_id,
+      offering_id,
+      pitch_date,
+      date_of_max_uplift,
+      max_uplift,
+      metric_type,
+      boolean_text
+  );
+
+CREATE OR REPLACE TABLE $implemented_table
+  OPTIONS (
+    format = 'capacitor',
+    path = '/placer/test/home/youtube-pd-placer-write/plx/Project_IO_tier1_v3/Implemented/implemented_tier1_v3_table@unsharded',
+    mdb_group = 'youtube-pd-placer-write',
+    overwrite_directory = TRUE,
+    order_by = "pitch_date, offering_description ASC"
+  )
+AS
+WITH  ## creating temp table metrics_reference so that we classify the metrics as "percent","boolean","number etc"
+  metrics_reference as (
+    select DISTINCT
+      base.offering_id,
+      base.implementation_reference,
+      metrics.metric_type,
+      boolean.current_value as boolean_text
+    from youtube_pd_project_io.offering_tier1_v3_map base
+    left join
+       (select distinct metric_list,metric_type from youtube_pd_project_io.io_implementation_tier1_v3) metrics
+      on base.implementation_reference = metrics.metric_list
+    left join
+      (
+        select DISTINCT
+          offering_id,
+          regexp_replace(current_value, "Not ", "") as current_value
+        from $offering_table
+        where
+          offering_id IN (
+            select offering_id
+            from youtube_pd_project_io.offering_tier1_v3_map
+            where boolean_field IS TRUE
+          )
+      ) boolean
+      using (offering_id)
+    order by 1
+  )
+SELECT DISTINCT
+  base.country_code,
+  base.ldap,
+  base.pro_id,
+  base.offering_id,
+  base.offering_description,
+  base.pitch_date,
+  base.partitiondate AS date_of_implementation,
+  case
+    when metric_type = 'PERCENT'
+      THEN
+        CONCAT(
+          CAST(
+            round(
+              (
+                IFNULL(base.post_metric_implementation, 0)
+                - ifnull(base.pre_metric_implementation, 0)
+              )
+              * 100,
+              0
+            ) as string
+          ),
+          "%"
+        )
+    when metric_type = 'NUMBER'
+      THEN
+        CAST(
+          ROUND(
+            (
+              IFNULL(base.post_metric_implementation, 0)
+              - IFNULL(base.pre_metric_implementation, 0)
+            ),
+            2
+          ) as string
+        )
+    WHEN metric_type = 'BOOL' THEN boolean_text
+    ELSE
+      cast(
+        (
+          IFNULL(base.post_metric_implementation, 0)
+          - ifnull(base.pre_metric_implementation, 0)
+        ) as string
+      )
+    end uplift,
+  max_uplift.date_of_max_uplift AS date_of_max_uplift,
+  max_uplift.max_uplift AS max_uplift,
+FROM
+  (
+    SELECT
+      partitiondate,
+      country_code,
+      ldap,
+      pro_id,
+      offering_id,
+      offering_description,
+      metric_list,
+      pitch_date,
+      post_metric,
+      pre_metric,
+      change,
+      normalised_change,
+      points_calc,
+      post_metric_implementation,
+      pre_metric_implementation,
+      RANK()
+        OVER (
+          PARTITION BY ldap, pro_id, offering_id, pitch_date
+          ORDER BY partitiondate ASC
+        ) AS ranked
+    FROM $points_table
+    WHERE
+      IFNULL(pre_metric_implementation, 0)
+      < IFNULL(post_metric_implementation, 0)
+  ) base
+LEFT JOIN $implemented_table_uplift max_uplift
+ on
+    base.pro_id = max_uplift.pro_id
+    AND base.offering_id = max_uplift.offering_id
+    AND base.pitch_date = max_uplift.pitch_date
+LEFT JOIN metrics_reference on cast(base.offering_id as string) = cast(metrics_reference.offering_id as string)
+LEFT JOIN $pro_table
+  pro
+  on base.pro_id = pro.pro_id  ## Added 09/24
+WHERE ranked = 1
+GROUP BY
+  country_code,
+  ldap,
+  pro_id,
+  offering_id,
+  offering_description,
+  pitch_date,
+  date_of_implementation,
+  uplift,
+  max_uplift,
+  date_of_max_uplift,
+  pro_name
